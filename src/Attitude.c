@@ -35,9 +35,9 @@ void *AttitudeTask ( void *ptr ) {
 	printf("%s : %s Démarrer\n", __FUNCTION__, Sensor->Name);
 
 	while (AttitudeActivated) {
-		pthread_mutex_lock(&(Sensor->DataSampleMutex)); 
-		while ((DataIdx[0] == Sensor->DataIdx)&&(AttitudeActivated != 0)) //Verification : Est-ce qu'une nouvelle valeur est ajoutee dans RawData
-			pthread_cond_wait(&(Sensor->DataNewSampleCondVar), &(Sensor->DataSampleMutex)); //Relache le mutex en attente : On est directement inscrit comme attendant le mutex
+		pthread_mutex_lock(&(Sensor->DataSampleMutex));
+		while ((DataIdx[0] == Sensor->DataIdx)&&(AttitudeActivated != 0))
+			pthread_cond_wait(&(Sensor->DataNewSampleCondVar), &(Sensor->DataSampleMutex));
 		if (AttitudeActivated == 0) {
 		    pthread_mutex_unlock(&(Sensor->DataSampleMutex));
 			break;
@@ -59,7 +59,7 @@ void *AttitudeTask ( void *ptr ) {
 		memcpy((void *) &LocSpeed, (void *) &(Attitude->AttitudeMesure->Speed), sizeof(AttData));
 		pthread_spin_unlock(&(AttitudeMesure->AttitudeLock));
 
-	  	Ka = ((2.0*Tau - Ts)/(2.0*Tau + Ts));  //Debut des calculs longs, ne pas tenir de verrou(duree non deterministe) (series de Taylor ? )
+	  	Ka = ((2.0*Tau - Ts)/(2.0*Tau + Ts));
 	  	Kb = (Ts/(2.0*Tau + Ts));
 	  	memcpy((void *) &(XYZ[1][0]), (void *) &(XYZ[0][0]), 3*sizeof(double));
 	  	for (i = X_AXE; i <= Z_AXE; i++) {
