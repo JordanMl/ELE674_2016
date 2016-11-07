@@ -115,15 +115,34 @@ int MotorPortInit(MotorStruct *Motor) {
 void motor_send(MotorStruct *Motor, int SendMode) {
 /* Fonction utilitaire pour simplifier les transmissions aux moteurs */
 
+
+	u08 cmdMotor[5]; //Trame 39 bits commande moteur
+	u16 cmdLed; //Trame 16 bits Led
+
 	switch (SendMode) {
-	case MOTOR_NONE : 		break;
+	case MOTOR_NONE :
+		break;
+
 	case MOTOR_PWM_ONLY :	/* A faire! */
-							break;
+		//Voir guide Prog page 10
+		cmdMotor[0] = 0x20 | (((Motor->pwm[0])&0x1ff)>>4);
+		cmdMotor[1] = (((Motor->pwm[0])&0x1ff)<<4) | (((Motor->pwm[1])&0x1ff)>>5);
+		cmdMotor[2] = (((Motor->pwm[1])&0x1ff)<<3) | (((Motor->pwm[2])&0x1ff)>>6);
+		cmdMotor[3] = (((Motor->pwm[2])&0x1ff)<<2) | (((Motor->pwm[3])&0x1ff)>>7);
+		cmdMotor[4] = (((Motor->pwm[3])&0x1ff)<<1);
+		write(Motor->file, cmdMotor, 5);
+
+
+		break;
 	case MOTOR_LED_ONLY :	/* A faire! */
 							break;
 	case MOTOR_PWM_LED :	/* A faire! */
 							break;
 	}
+
+
+
+
 }
 
 
@@ -137,6 +156,8 @@ void *MotorTask ( void *ptr ) {
 		if (MotorActivated == 0){
 				break;
 		}
+
+		//Envoie des vitesses aux moteurs
 
 	}
 	pthread_exit(0); /* exit thread */
@@ -175,6 +196,7 @@ int MotorInit (MotorStruct *Motor) {
 
 	sem_init(&MotorTimerSem, 0, 0);
 
+	MotorPortInit(
 	pthread_create(&(Motor->MotorThread), &attr, MotorTask, (void *) &Motor);
 
 	pthread_attr_destroy(&attr);
