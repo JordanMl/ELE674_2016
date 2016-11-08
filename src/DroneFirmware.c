@@ -222,6 +222,29 @@ int main(int argc, char *argv[]) {
 	while (ch != 'q') {
 		sem_wait(&MainTimerSem);
 		ch = tolower(getchar_nonblock());
+
+		if (ch =='z'){ //Speed Up
+			pthread_spin_lock(&(Motor.MotorLock));
+			if(Motor.pwm[0]<250){ //Bride à 250
+				Motor.pwm[0]++;
+				Motor.pwm[1]++;
+				Motor.pwm[2]++;
+				Motor.pwm[3]++;
+			}
+			pthread_spin_unlock(&(Motor.MotorLock));
+		}
+		else if (ch =='s'){ //Speed Down
+			pthread_spin_lock(&(Motor.MotorLock));
+			if(Motor.pwm[0]>0){ //securité à 0
+				Motor.pwm[0]--;
+				Motor.pwm[1]--;
+				Motor.pwm[2]--;
+				Motor.pwm[3]--;
+			}
+			pthread_spin_unlock(&(Motor.MotorLock));
+		}
+
+
 	}
 
 	MavlinkStop(&Mavlink);

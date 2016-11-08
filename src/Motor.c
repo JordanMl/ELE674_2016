@@ -116,8 +116,8 @@ void motor_send(MotorStruct *Motor, int SendMode) {
 /* Fonction utilitaire pour simplifier les transmissions aux moteurs */
 
 
-	u08 cmdMotor[5]; //Trame 39 bits commande moteur
-	u16 cmdLed; //Trame 16 bits Led
+	uint8_t cmdMotor[5]; //Trame 39 bits commande moteur
+	uint16_t cmdLed; //Trame 16 bits Led
 
 	switch (SendMode) {
 	case MOTOR_NONE :
@@ -131,7 +131,6 @@ void motor_send(MotorStruct *Motor, int SendMode) {
 		cmdMotor[3] = (((Motor->pwm[2])&0x1ff)<<2) | (((Motor->pwm[3])&0x1ff)>>7);
 		cmdMotor[4] = (((Motor->pwm[3])&0x1ff)<<1);
 		write(Motor->file, cmdMotor, 5);
-
 
 		break;
 	case MOTOR_LED_ONLY :	/* A faire! */
@@ -150,16 +149,26 @@ void *MotorTask ( void *ptr ) {
 /* A faire! */
 /* Tache qui transmet les nouvelles valeurs de vitesse */
 /* à chaque moteur à interval régulier (5 ms).         */
+	MotorStruct	*Motor = (MotorStruct *) ptr;
+
+	printf("%s : Motor prêt à démarrer\n", __FUNCTION__);
+	pthread_barrier_wait(&(MotorStartBarrier));
+	printf("%s : Motor démarré \n", __FUNCTION__);
+
 	while (MotorActivated) {
 
 		sem_wait(&MotorTimerSem);
 		if (MotorActivated == 0){
 				break;
 		}
-
 		//Envoie des vitesses aux moteurs
+		pthread_spin_lock(&(Motor->MotorLock));
+		motor_send(Motor, MOTOR_PWM_ONLY);
+		pthread_spin_unlock(&(Motor->MotorLock));
 
 	}
+	printf("%s : Motor arrêté \n", __FUNCTION__);
+
 	pthread_exit(0); /* exit thread */
 }
 
@@ -193,10 +202,21 @@ int MotorInit (MotorStruct *Motor) {
 	param.sched_priority = minprio + (maxprio - minprio)/2;
 	pthread_attr_setstacksize(&attr, THREADSTACK);
 	pthread_attr_setschedparam(&attr, &param);
-
 	sem_init(&MotorTimerSem, 0, 0);
 
-	MotorPortInit(
+	//Init Motor Struct :
+	pthread_spin_lock(&(Motor->MotorLock));
+	Motor->pwm[0]=0x00;
+	Motor->pwm[1]=0x00;
+	Motor->pwm[2]=0x00;
+	Motor->pwm[3]=0x00;
+	Motor->led[0]=0x00;
+	Motor->led[1]=0x00;
+	Motor->led[2]=0x00;
+	Motor->led[3]=0x00;
+	pthread_spin_unlock(&(Motor->MotorLock));
+
+
 	pthread_create(&(Motor->MotorThread), &attr, MotorTask, (void *) &Motor);
 
 	pthread_attr_destroy(&attr);
