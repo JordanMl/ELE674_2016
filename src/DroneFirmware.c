@@ -73,11 +73,13 @@ void SigTimerHandler (int signo) {
 			sem_post(&MavlinkStatusTimerSem);
 	}
 	if(MotorActivated){
-		if ((Period % MOTOR_PERIOD) == 0)
+		if ((Period % MOTOR_PERIOD) == 0){
 			sem_post(&MotorTimerSem);
+		}
 	}
-	if ((Period % MAIN_PERIOD) == 0)
+	if ((Period % MAIN_PERIOD) == 0){
 		sem_post (&MainTimerSem);
+	}
 	Period = (Period + 1) % MAX_PERIOD;
 }
 
@@ -189,6 +191,10 @@ int main(int argc, char *argv[]) {
 		printf("%s : Impossible d'initialiser le spinlock (AttitudeDesiree.AttitudeLock): retval = %d\n", __FUNCTION__, retval);
 		return -1; /* exit thread */
 	}
+	if ((retval = pthread_spin_init(&(Motor.MotorLock), 1)) < 0) {
+		printf("%s : Impossible d'initialiser le spinlock (Motor.MotorLock): retval = %d\n", __FUNCTION__, retval);
+				return -1; /* exit thread */
+	}
 
 	if ((retval = MotorInit(&Motor)) < 0)
 		return EXIT_FAILURE;
@@ -221,28 +227,30 @@ int main(int argc, char *argv[]) {
 	ch = 0;
 	while (ch != 'q') {
 		sem_wait(&MainTimerSem);
+
+		printf("%s : Main period \n", __FUNCTION__);
 		ch = tolower(getchar_nonblock());
 
-		if (ch =='z'){ //Speed Up
-			pthread_spin_lock(&(Motor.MotorLock));
-			if(Motor.pwm[0]<250){ //Bride à 250
-				Motor.pwm[0]++;
-				Motor.pwm[1]++;
-				Motor.pwm[2]++;
-				Motor.pwm[3]++;
-			}
-			pthread_spin_unlock(&(Motor.MotorLock));
-		}
-		else if (ch =='s'){ //Speed Down
-			pthread_spin_lock(&(Motor.MotorLock));
-			if(Motor.pwm[0]>0){ //securité à 0
-				Motor.pwm[0]--;
-				Motor.pwm[1]--;
-				Motor.pwm[2]--;
-				Motor.pwm[3]--;
-			}
-			pthread_spin_unlock(&(Motor.MotorLock));
-		}
+//		if (ch =='z'){ //Speed Up
+//			pthread_spin_lock(&(Motor.MotorLock));
+//			if(Motor.pwm[0]<250){ //Bride à 250
+//				Motor.pwm[0]++;
+//				Motor.pwm[1]++;
+//				Motor.pwm[2]++;
+//				Motor.pwm[3]++;
+//			}
+//			pthread_spin_unlock(&(Motor.MotorLock));
+//		}
+//		else if (ch =='s'){ //Speed Down
+//			pthread_spin_lock(&(Motor.MotorLock));
+//			if(Motor.pwm[0]>0){ //securité à 0
+//				Motor.pwm[0]--;
+//				Motor.pwm[1]--;
+//				Motor.pwm[2]--;
+//				Motor.pwm[3]--;
+//			}
+//			pthread_spin_unlock(&(Motor.MotorLock));
+//		}
 
 
 	}
@@ -254,6 +262,7 @@ int main(int argc, char *argv[]) {
 	ControlStop(&Control);
 
 	MotorStop(&Motor);
+	pthread_spin_destroy(&(Motor->MotorLock));
 	SensorsLogsStop(SensorTab);
 	SensorsStop(SensorTab);
 	AttitudeStop(AttitudeTab);
