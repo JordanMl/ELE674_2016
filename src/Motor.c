@@ -126,13 +126,13 @@ void motor_send(MotorStruct *Motor, int SendMode) {
 	case MOTOR_PWM_ONLY :	/* A faire! */
 		//Voir guide Prog page 10
 		pthread_spin_lock(&(Motor->MotorLock));
-//		cmdMotor[0] = 0x20 | (((Motor->pwm[0])&0x1ff)>>4);
-//		cmdMotor[1] = (((Motor->pwm[0])&0x1ff)<<4) | (((Motor->pwm[1])&0x1ff)>>5);
-//		cmdMotor[2] = (((Motor->pwm[1])&0x1ff)<<3) | (((Motor->pwm[2])&0x1ff)>>6);
-//		cmdMotor[3] = (((Motor->pwm[2])&0x1ff)<<2) | (((Motor->pwm[3])&0x1ff)>>7);
-//		cmdMotor[4] = (((Motor->pwm[3])&0x1ff)<<1);
+		cmdMotor[0] = 0x20 | (((Motor->pwm[0])&0x1ff)>>4);
+		cmdMotor[1] = (((Motor->pwm[0])&0x1ff)<<4) | (((Motor->pwm[1])&0x1ff)>>5);
+		cmdMotor[2] = (((Motor->pwm[1])&0x1ff)<<3) | (((Motor->pwm[2])&0x1ff)>>6);
+		cmdMotor[3] = (((Motor->pwm[2])&0x1ff)<<2) | (((Motor->pwm[3])&0x1ff)>>7);
+		cmdMotor[4] = (((Motor->pwm[3])&0x1ff)<<1);
 		pthread_spin_unlock(&(Motor->MotorLock));
-		//write(Motor->file, cmdMotor, 5);
+		write(Motor->file, cmdMotor, 5);
 
 		break;
 	case MOTOR_LED_ONLY :	/* A faire! */
@@ -201,13 +201,12 @@ int MotorInit (MotorStruct *Motor) {
 	minprio = sched_get_priority_min(POLICY);
 	maxprio = sched_get_priority_max(POLICY);
 	pthread_attr_setschedpolicy(&attr, POLICY);
-	param.sched_priority = minprio + (maxprio - minprio)/2;
+	param.sched_priority = minprio + (maxprio - minprio)/6;
 	pthread_attr_setstacksize(&attr, THREADSTACK);
 	pthread_attr_setschedparam(&attr, &param);
 	sem_init(&MotorTimerSem, 0, 0);
 
 	//Init Motor Struct :
-	pthread_spin_lock(&(Motor->MotorLock));
 	Motor->pwm[0]=0x00;
 	Motor->pwm[1]=0x00;
 	Motor->pwm[2]=0x00;
@@ -216,11 +215,10 @@ int MotorInit (MotorStruct *Motor) {
 	Motor->led[1]=0x00;
 	Motor->led[2]=0x00;
 	Motor->led[3]=0x00;
-	pthread_spin_unlock(&(Motor->MotorLock));
 
 
 
-	retval = pthread_create(&(Motor->MotorThread), &attr, MotorTask, (void *) &Motor);
+	retval = pthread_create(&(Motor->MotorThread), &attr, MotorTask, Motor);
 	if (retval) {
 			printf("pthread_create : Impossible de créer le thread MotorTask\n");
 			return retval;
@@ -250,14 +248,13 @@ int MotorStart (void) {
 int MotorStop (MotorStruct *Motor) {
 /* A faire! */
 /* Ici, vous devriez arrêter les moteurs et fermer le Port des moteurs. */ 
-	int i;
+	int i, err = 0;
 	MotorActivated = 0;
 	sem_post(&MotorTimerSem);
 
-	pthread_join(Motor->MotorThread,NULL);
-	for(i=0;i<4;i++){
-		Motor->pwm[i] = 0x0000;
-		Motor->led[i] = MOTOR_LEDOFF;
+	err = pthread_join(Motor->MotorThread,NULL);
+	if (err){
+		printf("pthread_join(MotorTask) : Erreur\n");
 	}
 	close(Motor->file);
 
