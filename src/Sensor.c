@@ -12,6 +12,7 @@
 
 #define MAX_TOT_SAMPLE 1000
 
+
 extern SensorStruct	SensorTab[NUM_SENSOR];
 
 pthread_barrier_t   SensorStartBarrier;
@@ -27,8 +28,23 @@ void *SensorTask ( void *ptr ) {
 /* A faire! */
 /* Tache qui sera instancié pour chaque sensor. Elle s'occupe d'aller */
 /* chercher les donnees du sensor.                                    */
+	SensorStruct	*Sensor = (SensorStruct *) ptr;
+
+
+	printf("%s : %s prêt à démarrer\n", __FUNCTION__, Sensor->Name);
+	pthread_barrier_wait(&SensorStartBarrier);
+	printf("%s : %s Démarrer\n", __FUNCTION__, Sensor->Name);
+
 	while (SensorsActivated) {
 //		DOSOMETHING();
+
+		If (read(accel_fd, &data, sizeof(struct sensor_data))) == sizeof(struct sensor_data)) {
+				//Les données ont été lues et placées dans "data"
+		} else {
+				//La structure n'a pas été copiée en entier
+		}
+		//stocker valeurs
+		//broadcast de la variable de condition pour SensorLog et Attitude
 	}
 	pthread_exit(0); /* exit thread */
 }
@@ -40,6 +56,40 @@ int SensorsInit (SensorStruct SensorTab[NUM_SENSOR]) {
 /* C'est-à-dire de faire les initialisations requises, telles que    */
 /* ouvrir les fichiers des capteurs, et de créer les Tâches qui vont */
 /* s'occuper de réceptionner les échantillons des capteurs.          */
+	pthread_attr_t		attr;
+	struct sched_param	param;
+	int					minprio, maxprio;
+	int					i;
+
+	pthread_barrier_init(&SensorStartBarrier, NULL, NUM_SENSOR+1);
+
+	pthread_attr_init(&attr);
+	pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
+	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+	pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM);
+	minprio = sched_get_priority_min(POLICY);
+	maxprio = sched_get_priority_max(POLICY);
+	pthread_attr_setschedpolicy(&attr, POLICY);
+	param.sched_priority = minprio + (maxprio - minprio)/2;
+	pthread_attr_setstacksize(&attr, THREADSTACK);
+	pthread_attr_setschedparam(&attr, &param);
+
+	//Open sensor device virtual files
+	for (i = 0; i < NUM_SENSOR; i++) {
+		SensorTab[i].File = open(SensorTab[i].DevName, O_RDONLY);
+		if(SensorTab[i].File < 0 ){
+			printf("%s : Error, %s file not open\n", __FUNCTION__, SensorTab[i].DevName);
+			return SensorTab[i].File;
+		}
+	}
+
+	//Create a task for each sensor
+	for (i = 0; i < NUM_SENSOR; i++) {
+		pthread_create(&(SensorTab[i].SensorThread), &attr, SensorTask, (void *) &(SensorTab[i]));
+	}
+
+	pthread_attr_destroy(&attr);
+
 	return 0;
 };
 
@@ -49,6 +99,11 @@ int SensorsStart (void) {
 /* Ici, vous devriez démarrer l'acquisition sur les capteurs.        */ 
 /* Les capteurs ainsi que tout le reste du système devrait être      */
 /* prêt à faire leur travail et il ne reste plus qu'à tout démarrer. */
+	SensorsActivated = 1;
+	pthread_barrier_wait(&(SensorStartBarrier));
+	pthread_barrier_destroy(&SensorStartBarrier);
+	printf("%s Sensor démarré\n", __FUNCTION__);
+
 	return 0;
 }
 
@@ -57,6 +112,19 @@ int SensorsStop (SensorStruct SensorTab[NUM_SENSOR]) {
 /* A faire! */
 /* Ici, vous devriez défaire ce que vous avez fait comme travail dans */
 /* SensorsInit() (toujours verifier les retours de chaque call)...    */ 
+	int i, retval;
+
+	SensorsActivated = 0;
+
+	//Close sensor device virtual files
+	for (i = 0; i < NUM_SENSOR; i++) {
+		retval = close(SensorTab[i].File;
+		if(retval){
+			printf("%s : Error, %s File not closed \n", __FUNCTION__, SensorTab[i].DevName);
+			return retval;
+		}
+		pthread_join(SensorTab[i].SensorThread, NULL); //Wait the end of the sensor task
+	}
 	return 0;
 }
 
