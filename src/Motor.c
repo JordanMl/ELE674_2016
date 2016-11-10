@@ -111,30 +111,47 @@ int MotorPortInit(MotorStruct *Motor) {
 	return 0;
 }
 
+void SetPWM(uint16_t mot_filedesc, uint16_t pwm1, uint16_t pwm2, uint16_t pwm3,
+			uint16_t pwm4) {
+		uint8_t motorCmd[5];
+
+	//Voir guide Prog page 10
+	motorCmd[0] = 0x20 | ((pwm1 & 0x1ff) >> 4);
+	motorCmd[1] = ((pwm1 & 0x1ff) << 4) | ((pwm2 & 0x1ff) >> 5);
+	motorCmd[2] = ((pwm2 & 0x1ff) << 3) | ((pwm3 & 0x1ff) >> 6);
+	motorCmd[3] = ((pwm3 & 0x1ff) << 2) | ((pwm4 & 0x1ff) >> 7);
+	motorCmd[4] = ((pwm4 & 0x1ff) << 1);
+
+	write(mot_filedesc, motorCmd, 5);
+}
 
 void motor_send(MotorStruct *Motor, int SendMode) {
 /* Fonction utilitaire pour simplifier les transmissions aux moteurs */
 
 
-	uint8_t cmdMotor[5]; //Trame 39 bits commande moteur
-	uint16_t cmdLed; //Trame 16 bits Led
+	uint16_t motorPWM[4];
+	uint16_t motorLeds[4];
+
+	pthread_spin_lock(&(Motor->MotorLock));
+	motorPWM[0] = Motor->pwm[0];
+	motorPWM[1] = Motor->pwm[1];
+	motorPWM[2] = Motor->pwm[2];
+	motorPWM[3] = Motor->pwm[3];
+	//printf("Vitesse Moteur 1 : %d 2 : %d 3 : %d 4 : %d\n",Motor->pwm[0],Motor->pwm[1],Motor->pwm[2],Motor->pwm[3]);
+
+	motorLeds[0] = Motor->led[0];
+	motorLeds[1] = Motor->led[1];
+	motorLeds[2] = Motor->led[2];
+	motorLeds[3] = Motor->led[3];
+	pthread_spin_unlock(&(Motor->MotorLock));
 
 	switch (SendMode) {
 	case MOTOR_NONE :
 		break;
 
 	case MOTOR_PWM_ONLY :	/* A faire! */
-		//Voir guide Prog page 10
-		pthread_spin_lock(&(Motor->MotorLock));
-		cmdMotor[0] = 0x20 | (((Motor->pwm[0])&0x1ff)>>4);
-		cmdMotor[1] = (((Motor->pwm[0])&0x1ff)<<4) | (((Motor->pwm[1])&0x1ff)>>5);
-		cmdMotor[2] = (((Motor->pwm[1])&0x1ff)<<3) | (((Motor->pwm[2])&0x1ff)>>6);
-		cmdMotor[3] = (((Motor->pwm[2])&0x1ff)<<2) | (((Motor->pwm[3])&0x1ff)>>7);
-		cmdMotor[4] = (((Motor->pwm[3])&0x1ff)<<1);
-		pthread_spin_unlock(&(Motor->MotorLock));
-		write(Motor->file, cmdMotor, 5);
-
-		break;
+							SetPWM(Motor->file, motorPWM[0], motorPWM[1], motorPWM[2], motorPWM[3]);
+							break;
 	case MOTOR_LED_ONLY :	/* A faire! */
 							break;
 	case MOTOR_PWM_LED :	/* A faire! */
@@ -160,12 +177,12 @@ void *MotorTask ( void *ptr ) {
 	while (MotorActivated) {
 
 		sem_wait(&MotorTimerSem);
-		printf("%s : Moteur period \n", __FUNCTION__);
+		//printf("%s : Moteur period \n", __FUNCTION__);
 		if (MotorActivated == 0){
 				break;
 		}
 		//Envoie des vitesses aux moteurs
-		printf("%s : Envoie des commandes aux moteurs \n", __FUNCTION__);
+		//printf("%s : Envoie des commandes aux moteurs \n", __FUNCTION__);
 		motor_send(Motor, MOTOR_PWM_ONLY);
 	}
 	printf("%s : Motor arrêté \n", __FUNCTION__);
@@ -184,7 +201,6 @@ int MotorInit (MotorStruct *Motor) {
 	pthread_attr_t		attr;
 	struct sched_param	param;
 	int					minprio, maxprio;
-	int					i;
     int 				retval;
 
 	if(MotorPortInit(Motor)!=0){
@@ -211,10 +227,10 @@ int MotorInit (MotorStruct *Motor) {
 	Motor->pwm[1]=0x00;
 	Motor->pwm[2]=0x00;
 	Motor->pwm[3]=0x00;
-	Motor->led[0]=0x00;
-	Motor->led[1]=0x00;
-	Motor->led[2]=0x00;
-	Motor->led[3]=0x00;
+	Motor->led[0]=0;
+	Motor->led[1]=0;
+	Motor->led[2]=0;
+	Motor->led[3]=0;
 
 
 
@@ -248,13 +264,14 @@ int MotorStart (void) {
 int MotorStop (MotorStruct *Motor) {
 /* A faire! */
 /* Ici, vous devriez arrêter les moteurs et fermer le Port des moteurs. */ 
-	int i, err = 0;
+	int err = 0;
 	MotorActivated = 0;
 	sem_post(&MotorTimerSem);
 
 	err = pthread_join(Motor->MotorThread,NULL);
 	if (err){
 		printf("pthread_join(MotorTask) : Erreur\n");
+		return err;
 	}
 	close(Motor->file);
 

@@ -179,7 +179,7 @@ int main(int argc, char *argv[]) {
 	printf("%s ça démarre !!!\n", __FUNCTION__);
 
 	param.sched_priority = sched_get_priority_min(POLICY);
-   pthread_setschedparam(pthread_self(), POLICY, &param);
+    pthread_setschedparam(pthread_self(), POLICY, &param);
 
 	sem_init(&MainTimerSem, 0, 0);
 
@@ -198,29 +198,29 @@ int main(int argc, char *argv[]) {
 
 	if ((retval = MotorInit(&Motor)) < 0)
 		return EXIT_FAILURE;
-	if ((retval = SensorsLogsInit(SensorTab)) < 0)
-		return EXIT_FAILURE;
-	if ((retval = SensorsInit(SensorTab)) < 0)
-		return EXIT_FAILURE;
-	if ((retval = AttitudeInit(AttitudeTab)) < 0)
-		return EXIT_FAILURE;
-	if ((retval = MavlinkInit(&Mavlink, &AttitudeDesire, &AttitudeMesure, IPAddress)) < 0)
-		return EXIT_FAILURE;
-	if ((retval = ControlInit(&Control)) < 0)
-		return EXIT_FAILURE;
+//	if ((retval = SensorsLogsInit(SensorTab)) < 0)
+//		return EXIT_FAILURE;
+//	if ((retval = SensorsInit(SensorTab)) < 0)
+//		return EXIT_FAILURE;
+//	if ((retval = AttitudeInit(AttitudeTab)) < 0)
+//		return EXIT_FAILURE;
+//	if ((retval = MavlinkInit(&Mavlink, &AttitudeDesire, &AttitudeMesure, IPAddress)) < 0)
+//		return EXIT_FAILURE;
+//	if ((retval = ControlInit(&Control)) < 0)
+//		return EXIT_FAILURE;
 
 	printf("%s Tout initialisé\n", __FUNCTION__);
 
 	StartTimer();
 
 	MotorStart();
-	SensorsStart();
-	AttitudeStart();
+//	SensorsStart();
+//	AttitudeStart();
 
-	SensorsLogsStart();
+//	SensorsLogsStart();
 
-	MavlinkStart();
-	ControlStart();
+//	MavlinkStart();
+//	ControlStart();
 
 	printf("%s Tout démarré\n", __FUNCTION__);
 
@@ -228,44 +228,41 @@ int main(int argc, char *argv[]) {
 	while (ch != 'q') {
 		sem_wait(&MainTimerSem);
 
-		printf("%s : Main period \n", __FUNCTION__);
+		//printf("%s : Main period \n", __FUNCTION__);
 		ch = tolower(getchar_nonblock());
 
-//		if (ch =='z'){ //Speed Up
-//			pthread_spin_lock(&(Motor.MotorLock));
-//			if(Motor.pwm[0]<250){ //Bride à 250
-//				Motor.pwm[0]++;
-//				Motor.pwm[1]++;
-//				Motor.pwm[2]++;
-//				Motor.pwm[3]++;
-//			}
-//			pthread_spin_unlock(&(Motor.MotorLock));
-//		}
-//		else if (ch =='s'){ //Speed Down
-//			pthread_spin_lock(&(Motor.MotorLock));
-//			if(Motor.pwm[0]>0){ //securité à 0
-//				Motor.pwm[0]--;
-//				Motor.pwm[1]--;
-//				Motor.pwm[2]--;
-//				Motor.pwm[3]--;
-//			}
-//			pthread_spin_unlock(&(Motor.MotorLock));
-//		}
+		if (ch =='z'){ //Speed Up
+			if(Motor.pwm[0]<250){
+				Motor.pwm[0]+= 0x05;
+				Motor.pwm[1]+= 0x05;
+				Motor.pwm[2]+= 0x05;
+				Motor.pwm[3]+= 0x05;
+			}
+
+		}
+		else if (ch =='s'){ //Speed Down
+			if(Motor.pwm[0]>0){
+				Motor.pwm[0]-=0x05;
+				Motor.pwm[1]-=0x05;
+				Motor.pwm[2]-=0x05;
+				Motor.pwm[3]-=0x05;
+			}
+		}
 
 
 	}
 
-	MavlinkStop(&Mavlink);
+//	MavlinkStop(&Mavlink);
 	pthread_spin_destroy(&(AttitudeDesire.AttitudeLock));
 	pthread_spin_destroy(&(AttitudeMesure.AttitudeLock));
-
-	ControlStop(&Control);
+//
+//	ControlStop(&Control);
 
 	MotorStop(&Motor);
-	pthread_spin_destroy(&(Motor->MotorLock));
-	SensorsLogsStop(SensorTab);
-	SensorsStop(SensorTab);
-	AttitudeStop(AttitudeTab);
+	pthread_spin_destroy(&(Motor.MotorLock));
+//	SensorsLogsStop(SensorTab);
+//	SensorsStop(SensorTab);
+//	AttitudeStop(AttitudeTab);
 
 	StopTimer();
 
