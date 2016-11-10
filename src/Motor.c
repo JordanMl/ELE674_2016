@@ -111,7 +111,7 @@ int MotorPortInit(MotorStruct *Motor) {
 	return 0;
 }
 
-void SetPWM(uint16_t mot_filedesc, uint16_t pwm1, uint16_t pwm2, uint16_t pwm3,
+void setPWM(uint16_t mot_filedesc, uint16_t pwm1, uint16_t pwm2, uint16_t pwm3,
 			uint16_t pwm4) {
 		uint8_t motorCmd[5];
 
@@ -123,6 +123,20 @@ void SetPWM(uint16_t mot_filedesc, uint16_t pwm1, uint16_t pwm2, uint16_t pwm3,
 	motorCmd[4] = ((pwm4 & 0x1ff) << 1);
 
 	write(mot_filedesc, motorCmd, 5);
+}
+
+void setLEDs(uint16_t mot_filedesc, uint16_t led1, uint16_t led2, uint16_t led3,
+				uint8_t led4) {
+	uint8_t cmd[2];
+	uint16_t leds;
+
+	leds = (led1 << 1) | (led2 << 2) | (led3 << 3) | (led4 << 4);
+
+	cmd[0] = 0x60;
+	cmd[0] |= (leds & 0xFF00) >> 8;
+	cmd[1] = leds & 0x00FF;
+
+	write(mot_filedesc, cmd, 2);
 }
 
 void motor_send(MotorStruct *Motor, int SendMode) {
@@ -150,11 +164,14 @@ void motor_send(MotorStruct *Motor, int SendMode) {
 		break;
 
 	case MOTOR_PWM_ONLY :	/* A faire! */
-							SetPWM(Motor->file, motorPWM[0], motorPWM[1], motorPWM[2], motorPWM[3]);
+							setPWM(Motor->file, motorPWM[0], motorPWM[1], motorPWM[2], motorPWM[3]);
 							break;
 	case MOTOR_LED_ONLY :	/* A faire! */
+							setLEDs(Motor->file, motorLeds[0], motorLeds[1], motorLeds[2],motorLeds[3]);
 							break;
 	case MOTOR_PWM_LED :	/* A faire! */
+							setLEDs(Motor->file, motorLeds[0], motorLeds[1], motorLeds[2],motorLeds[3]);
+							setPWM(Motor->file, motorPWM[0], motorPWM[1], motorPWM[2], motorPWM[3]);
 							break;
 	}
 
@@ -183,7 +200,7 @@ void *MotorTask ( void *ptr ) {
 		}
 		//Envoie des vitesses aux moteurs
 		//printf("%s : Envoie des commandes aux moteurs \n", __FUNCTION__);
-		motor_send(Motor, MOTOR_PWM_ONLY);
+		motor_send(Motor, MOTOR_PWM_LED);
 	}
 	printf("%s : Motor arrêté \n", __FUNCTION__);
 

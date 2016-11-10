@@ -248,8 +248,30 @@ int main(int argc, char *argv[]) {
 				Motor.pwm[3]-=0x05;
 			}
 		}
-
-
+		else if(ch == 'g'){
+			Motor.led[0] = MOTOR_LEDGREEN;
+			Motor.led[1] = MOTOR_LEDGREEN;
+			Motor.led[2] = MOTOR_LEDGREEN;
+			Motor.led[3] = MOTOR_LEDGREEN;
+		}
+		else if(ch == 'o'){
+			Motor.led[0] = MOTOR_LEDORANGE;
+			Motor.led[1] = MOTOR_LEDORANGE;
+			Motor.led[2] = MOTOR_LEDORANGE;
+			Motor.led[3] = MOTOR_LEDORANGE;
+		}
+		else if(ch == 'r'){
+			Motor.led[0] = MOTOR_LEDRED;
+			Motor.led[1] = MOTOR_LEDRED;
+			Motor.led[2] = MOTOR_LEDRED;
+			Motor.led[3] = MOTOR_LEDRED;
+		}
+		else if(ch == 'l'){
+			Motor.led[0] = MOTOR_LEDOFF;
+			Motor.led[1] = MOTOR_LEDOFF;
+			Motor.led[2] = MOTOR_LEDOFF;
+			Motor.led[3] = MOTOR_LEDOFF;
+		}
 	}
 
 //	MavlinkStop(&Mavlink);
