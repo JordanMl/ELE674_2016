@@ -38,13 +38,25 @@ void *SensorTask ( void *ptr ) {
 	while (SensorsActivated) {
 //		DOSOMETHING();
 
-		If (read(accel_fd, &data, sizeof(struct sensor_data))) == sizeof(struct sensor_data)) {
+
+		//read ()  Bloquant (bloque jusqu'à ce qu'une donnée arrive)
+			//On place la donnée dans une structure locale,
+			//On peut ensuite manipuler la donnée :
+
+			// Switch case suivant le type de capteur :
+				// - Convertir la donnée
+				//   -> Corriger la plage (minVal, maxVal, centerVal)
+				//   -> Appliquer la conversion
+				//   -> calculer le délais (Timestamp)
+				// - Incrémenter avant l'index du tableau
+				// - Placer l'échantillon dans la structure Data (protection par SpinLock)
+				// - Avertir qu'un nouvel échantillon est arrivé (Broadcast)
+
+		if (read(accel_fd, &data, sizeof(struct sensor_data))) == sizeof(struct sensor_data)) {
 				//Les données ont été lues et placées dans "data"
 		} else {
 				//La structure n'a pas été copiée en entier
 		}
-		//stocker valeurs
-		//broadcast de la variable de condition pour SensorLog et Attitude
 	}
 	pthread_exit(0); /* exit thread */
 }
