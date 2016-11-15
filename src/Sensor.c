@@ -29,7 +29,8 @@ void *SensorTask ( void *ptr ) {
 /* Tache qui sera instancié pour chaque sensor. Elle s'occupe d'aller */
 /* chercher les donnees du sensor.                                    */
 	SensorStruct	*Sensor = (SensorStruct *) ptr;
-
+	SensorRawData   sensorRawSample;
+	SensorData		sensorSample;
 
 	printf("%s : %s prêt à démarrer\n", __FUNCTION__, Sensor->Name);
 	pthread_barrier_wait(&SensorStartBarrier);
@@ -47,13 +48,35 @@ void *SensorTask ( void *ptr ) {
 				// - Convertir la donnée
 				//   -> Corriger la plage (minVal, maxVal, centerVal)
 				//   -> Appliquer la conversion
-				//   -> calculer le délais (Timestamp)
-				// - Incrémenter avant l'index du tableau
-				// - Placer l'échantillon dans la structure Data (protection par SpinLock)
-				// - Avertir qu'un nouvel échantillon est arrivé (Broadcast)
 
-		if (read(accel_fd, &data, sizeof(struct sensor_data))) == sizeof(struct sensor_data)) {
-				//Les données ont été lues et placées dans "data"
+		//Read, la fonction dort jusqu'à la réception d'un échantillon
+		//	  , place l'échantillon dans sensorRawSample
+		if (read(Sensor->File, &sensorRawSample, sizeof(SensorData)) == sizeof(SensorData)) {
+
+			//Switch case pour chaque type de sensor :
+			switch(sensorRawSample.type){
+				case ACCELEROMETRE :
+					//Correction de la donnée  : lire sensorRawSample -> placer dans sensorSample
+					break;
+				case GYROSCOPE :
+					//Correction de la donnée  : lire sensorRawSample -> placer dans sensorSample
+					break;
+				case SONAR:
+					//Correction de la donnée  : lire sensorRawSample -> placer dans sensorSample
+					break;
+				case BAROMETRE:
+					//Correction de la donnée  : lire sensorRawSample -> placer dans sensorSample
+					break;
+				case MAGNETOMETRE:
+					//Correction de la donnée  : lire sensorRawSample -> placer dans sensorSample
+					break;
+			}
+			//   -> calculer le délais (Timestamp)
+			// - Incrémenter avant l'index du tableau
+			// - Placer l'échantillon dans la structure Data (protection par SpinLock)
+			// - Avertir qu'un nouvel échantillon est arrivé (Broadcast)
+
+
 		} else {
 				//La structure n'a pas été copiée en entier
 		}
@@ -130,7 +153,7 @@ int SensorsStop (SensorStruct SensorTab[NUM_SENSOR]) {
 
 	//Close sensor device virtual files
 	for (i = 0; i < NUM_SENSOR; i++) {
-		retval = close(SensorTab[i].File;
+		retval = close(SensorTab[i].File);
 		if(retval){
 			printf("%s : Error, %s File not closed \n", __FUNCTION__, SensorTab[i].DevName);
 			return retval;
