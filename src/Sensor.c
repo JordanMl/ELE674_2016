@@ -28,17 +28,24 @@ void *SensorTask ( void *ptr ) {
 /* A faire! */
 /* Tache qui sera instancié pour chaque sensor. Elle s'occupe d'aller */
 /* chercher les donnees du sensor.                                    */
+	int i=0;
 	SensorStruct	*Sensor = (SensorStruct *) ptr;
-	SensorRawData   sensorRawSample;
+	SensorRawData   sensorRawSample; //sensor actual raw sample received
+	SensorRawData   sensorOldRawSample; //sensor precedent sample to calculate timeDelay
 	SensorData		sensorSample;
+
+	sensorSample.TimeDelay = 0;
+	sensorRawSample.ech_num=0;
+	sensorRawSample.timestamp_n=0;
+	sensorRawSample.timestamp_s=0;
+
+
 
 	printf("%s : %s prêt à démarrer\n", __FUNCTION__, Sensor->Name);
 	pthread_barrier_wait(&SensorStartBarrier);
 	printf("%s : %s Démarrer\n", __FUNCTION__, Sensor->Name);
 
 	while (SensorsActivated) {
-//		DOSOMETHING();
-
 
 		//read ()  Bloquant (bloque jusqu'à ce qu'une donnée arrive)
 			//On place la donnée dans une structure locale,
@@ -49,34 +56,30 @@ void *SensorTask ( void *ptr ) {
 				//   -> Corriger la plage (minVal, maxVal, centerVal)
 				//   -> Appliquer la conversion
 
+
+
 		//Read, la fonction dort jusqu'à la réception d'un échantillon
 		//	  , place l'échantillon dans sensorRawSample
 		if (read(Sensor->File, &sensorRawSample, sizeof(SensorData)) == sizeof(SensorData)) {
 
-			//Switch case pour chaque type de sensor :
-			switch(sensorRawSample.type){
-				case ACCELEROMETRE :
-					//Correction de la donnée  : lire sensorRawSample -> placer dans sensorSample
-					break;
-				case GYROSCOPE :
-					//Correction de la donnée  : lire sensorRawSample -> placer dans sensorSample
-					break;
-				case SONAR:
-					//Correction de la donnée  : lire sensorRawSample -> placer dans sensorSample
-					break;
-				case BAROMETRE:
-					//Correction de la donnée  : lire sensorRawSample -> placer dans sensorSample
-					break;
-				case MAGNETOMETRE:
-					//Correction de la donnée  : lire sensorRawSample -> placer dans sensorSample
-					break;
+			//Correction de la donnée  : lire sensorRawSample -> placer dans sensorSample
+			if(sensorRawSample.status==NEW_SAMPLE){ //if New sample
+				for(i=0;i<3;i++){  //multiplication par le facteur de conversion
+					sensorRawSample.data[i] -= Sensor->Param->centerVal;
+					sensorSample.Data[i]=sensorRawSample.data[i]*(Sensor->Param->Conversion);
+				}
+
+				if(sensorRawSample.ech_num!=sensorOldRawSample.ech_num){ //echantillon différente de l'ancien stocké en local
+					//  calculer le délais par rapport au OldRawSample (echantillon brute précédent)
+					// CALCULER DE TIMEDELAY QUE EN SECONDE ??? Demander au prof ou chercher si c'est marqué quelque part
+					sensorSample.TimeDelay = sensorRawSample.timestamp_s - sensorOldRawSample.timestamp_s; //secondes
+
+					// - Incrémenter avant l'index du tableau
+					// - Placer l'échantillon dans la structure Data (protection par SpinLock)
+					// - Avertir qu'un nouvel échantillon est arrivé (Broadcast)
+				}
+
 			}
-			//   -> calculer le délais (Timestamp)
-			// - Incrémenter avant l'index du tableau
-			// - Placer l'échantillon dans la structure Data (protection par SpinLock)
-			// - Avertir qu'un nouvel échantillon est arrivé (Broadcast)
-
-
 		} else {
 				//La structure n'a pas été copiée en entier
 		}
