@@ -35,9 +35,12 @@ void *SensorTask ( void *ptr ) {
 	SensorData		sensorSample;
 
 	sensorSample.TimeDelay = 0;
-	sensorRawSample.ech_num=0;
-	sensorRawSample.timestamp_n=0;
-	sensorRawSample.timestamp_s=0;
+	sensorRawSample.ech_num = 0;
+	sensorRawSample.timestamp_n = 0;
+	sensorRawSample.timestamp_s = 0;
+	sensorOldRawSample.ech_num = DATABUFSIZE;
+	sensorOldRawSample.timestamp_n = 0;
+	sensorOldRawSample.timestamp_s = 0;
 
 
 
@@ -60,11 +63,11 @@ void *SensorTask ( void *ptr ) {
 
 		//Read, la fonction dort jusqu'à la réception d'un échantillon
 		//	  , place l'échantillon dans sensorRawSample
-		if (read(Sensor->File, &sensorRawSample, sizeof(SensorData)) == sizeof(SensorData)) {
-
+		if (read(Sensor->File, &sensorRawSample, sizeof(SensorRawData)) == sizeof(SensorRawData)) {
+			//printf("%s Lecture %s \n",__FUNCTION__,Sensor->Name);
 			//Correction de la donnée  : lire sensorRawSample -> placer dans sensorSample
 			if(sensorRawSample.status==NEW_SAMPLE){ //if New sample
-				for(i=0;i<3;i++){  //multiplication par le facteur de conversion
+				for(i=0;i<3;i++){  //mise à l'échelle puis multiplication par le facteur de conversion
 					sensorRawSample.data[i] -= Sensor->Param->centerVal;
 					sensorSample.Data[i]=sensorRawSample.data[i]*(Sensor->Param->Conversion);
 				}
@@ -74,16 +77,30 @@ void *SensorTask ( void *ptr ) {
 					// CALCULER DE TIMEDELAY QUE EN SECONDE ??? Demander au prof ou chercher si c'est marqué quelque part
 					sensorSample.TimeDelay = sensorRawSample.timestamp_s - sensorOldRawSample.timestamp_s; //secondes
 
-					// - Incrémenter avant l'index du tableau
-					// - Placer l'échantillon dans la structure Data (protection par SpinLock)
+					// - Placer l'échantillon dans la structure global (protection par SpinLock)
+					pthread_spin_lock(&Sensor->DataLock);
+					Sensor->Data[Sensor->DataIdx] = sensorSample;
+					Sensor->RawData[Sensor->DataIdx] = sensorRawSample;
+					//Mise à jour de l'index
+					if(Sensor->DataIdx!=(DATABUFSIZE-1)){
+						Sensor->DataIdx++;
+					}
+					else {
+						Sensor->DataIdx = 0;
+					}
+					pthread_spin_unlock(&Sensor->DataLock);
 					// - Avertir qu'un nouvel échantillon est arrivé (Broadcast)
+					pthread_cond_broadcast(&(Sensor->DataNewSampleCondVar));
+
 				}
 
 			}
 		} else {
 				//La structure n'a pas été copiée en entier
+			printf("La structure n'a pas été copiée en entier\n");
 		}
 	}
+	printf("%s : %s Arrêté \n", __FUNCTION__,Sensor->Name);
 	pthread_exit(0); /* exit thread */
 }
 
@@ -111,6 +128,11 @@ int SensorsInit (SensorStruct SensorTab[NUM_SENSOR]) {
 	param.sched_priority = minprio + (maxprio - minprio)/2;
 	pthread_attr_setstacksize(&attr, THREADSTACK);
 	pthread_attr_setschedparam(&attr, &param);
+
+	for (i = 0; i < NUM_SENSOR ; i++){
+		pthread_mutex_init(&(SensorTab[i].DataSampleMutex),NULL);
+		pthread_cond_init(&(SensorTab[i].DataNewSampleCondVar),NULL);
+	}
 
 	//Open sensor device virtual files
 	for (i = 0; i < NUM_SENSOR; i++) {
@@ -162,6 +184,8 @@ int SensorsStop (SensorStruct SensorTab[NUM_SENSOR]) {
 			return retval;
 		}
 		pthread_join(SensorTab[i].SensorThread, NULL); //Wait the end of the sensor task
+		pthread_cond_destroy(&(SensorTab[i].DataNewSampleCondVar));
+		pthread_mutex_destroy(&(SensorTab[i].DataSampleMutex));
 	}
 	return 0;
 }
