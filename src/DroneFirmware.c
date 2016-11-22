@@ -208,12 +208,12 @@ int main(int argc, char *argv[]) {
 		return EXIT_FAILURE;
 	if ((retval = SensorsInit(SensorTab)) < 0)
 		return EXIT_FAILURE;
-//	if ((retval = AttitudeInit(AttitudeTab)) < 0)
-//		return EXIT_FAILURE;
-//	if ((retval = MavlinkInit(&Mavlink, &AttitudeDesire, &AttitudeMesure, IPAddress)) < 0)
-//		return EXIT_FAILURE;
-//	if ((retval = ControlInit(&Control)) < 0)
-//		return EXIT_FAILURE;
+	if ((retval = AttitudeInit(AttitudeTab)) < 0)
+		return EXIT_FAILURE;
+	if ((retval = MavlinkInit(&Mavlink, &AttitudeDesire, &AttitudeMesure, IPAddress)) < 0)
+		return EXIT_FAILURE;
+	if ((retval = ControlInit(&Control)) < 0)
+		return EXIT_FAILURE;
 
 	printf("%s Tout initialisé\n", __FUNCTION__);
 
@@ -221,11 +221,11 @@ int main(int argc, char *argv[]) {
 
 	MotorStart();
 	SensorsStart();
-//	AttitudeStart();
+	AttitudeStart();
 
 	SensorsLogsStart();
 
-//	MavlinkStart();
+	MavlinkStart();
 //	ControlStart();
 
 	printf("%s Tout démarré\n", __FUNCTION__);
@@ -280,7 +280,7 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-//	MavlinkStop(&Mavlink);
+	MavlinkStop(&Mavlink);
 	pthread_spin_destroy(&(AttitudeDesire.AttitudeLock));
 	pthread_spin_destroy(&(AttitudeMesure.AttitudeLock));
 //
@@ -293,7 +293,7 @@ int main(int argc, char *argv[]) {
 	for(i = 0; i < NUM_SENSOR; i++){
 		pthread_spin_destroy(&(SensorTab[i].DataLock));
 	}
-//	AttitudeStop(AttitudeTab);
+	AttitudeStop(AttitudeTab);
 
 	StopTimer();
 

@@ -79,19 +79,17 @@ void *SensorTask ( void *ptr ) {
 
 					// - Placer l'échantillon dans la structure global (protection par SpinLock)
 					pthread_spin_lock(&Sensor->DataLock);
-					Sensor->Data[Sensor->DataIdx] = sensorSample;
-					Sensor->RawData[Sensor->DataIdx] = sensorRawSample;
-					//Mise à jour de l'index
-					if(Sensor->DataIdx!=(DATABUFSIZE-1)){
-						Sensor->DataIdx++;
-					}
-					else {
-						Sensor->DataIdx = 0;
-					}
+					memcpy((void *) &(Sensor->Data[Sensor->DataIdx]),(void *) &(sensorSample),sizeof(SensorData));
+					memcpy((void *) &(Sensor->RawData[Sensor->DataIdx]),(void *) &(sensorRawSample),sizeof(SensorRawData));
 					pthread_spin_unlock(&Sensor->DataLock);
+
+					pthread_mutex_lock(&(Sensor->DataSampleMutex));
+					//Mise à jour de l'index
+					Sensor->DataIdx++;
+					Sensor->DataIdx %= (DATABUFSIZE-1);
 					// - Avertir qu'un nouvel échantillon est arrivé (Broadcast)
 					pthread_cond_broadcast(&(Sensor->DataNewSampleCondVar));
-
+					pthread_mutex_unlock(&(Sensor->DataSampleMutex));
 				}
 
 			}
