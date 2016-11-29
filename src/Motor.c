@@ -281,16 +281,20 @@ int MotorStart (void) {
 int MotorStop (MotorStruct *Motor) {
 /* A faire! */
 /* Ici, vous devriez arrêter les moteurs et fermer le Port des moteurs. */ 
-	int err = 0;
+	int retval = 0;
 	MotorActivated = 0;
 	sem_post(&MotorTimerSem);
 
-	err = pthread_join(Motor->MotorThread,NULL);
-	if (err){
+	retval = pthread_join(Motor->MotorThread,NULL);
+	if (retval){
 		printf("pthread_join(MotorTask) : Erreur\n");
-		return err;
+		return retval;
 	}
-	close(Motor->file);
+	retval = close(Motor->file);
+	if(retval){
+		printf("%s : Error, %s File not closed \n", __FUNCTION__, MOTOR_UART);
+		return retval;
+	}
 
-	return 0;
+	return retval;
 }

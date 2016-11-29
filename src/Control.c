@@ -214,15 +214,15 @@ void *ControlTask ( void *ptr ) {
 		PWM[1] = PWM[2] = PWM[3] = PWM[0];
 
 		pthread_spin_lock(&(Motor->MotorLock));
-   	Motor->pwm[0] = (uint16_t)(PWM[0]*0x01ff);
-   	Motor->pwm[1] = (uint16_t)(PWM[1]*0x01ff);
-   	Motor->pwm[2] = (uint16_t)(PWM[2]*0x01ff);
-   	Motor->pwm[3] = (uint16_t)(PWM[3]*0x01ff);
-   	Motor->led[0] = (Motor->pwm[0] > 0.0) ? MOTOR_LEDGREEN : MOTOR_LEDRED;
-   	Motor->led[1] = (Motor->pwm[1] > 0.0) ? MOTOR_LEDGREEN : MOTOR_LEDRED;
-   	Motor->led[2] = (Motor->pwm[2] > 0.0) ? MOTOR_LEDGREEN : MOTOR_LEDRED;
-   	Motor->led[3] = (Motor->pwm[3] > 0.0) ? MOTOR_LEDGREEN : MOTOR_LEDRED;
-   	pthread_spin_unlock(&(Motor->MotorLock));
+		Motor->pwm[0] = (uint16_t)(PWM[0]*0x01ff);
+		Motor->pwm[1] = (uint16_t)(PWM[1]*0x01ff);
+		Motor->pwm[2] = (uint16_t)(PWM[2]*0x01ff);
+		Motor->pwm[3] = (uint16_t)(PWM[3]*0x01ff);
+		Motor->led[0] = (Motor->pwm[0] > 0.0) ? MOTOR_LEDGREEN : MOTOR_LEDRED;
+		Motor->led[1] = (Motor->pwm[1] > 0.0) ? MOTOR_LEDGREEN : MOTOR_LEDRED;
+		Motor->led[2] = (Motor->pwm[2] > 0.0) ? MOTOR_LEDGREEN : MOTOR_LEDRED;
+		Motor->led[3] = (Motor->pwm[3] > 0.0) ? MOTOR_LEDGREEN : MOTOR_LEDRED;
+		pthread_spin_unlock(&(Motor->MotorLock));
 	}
 
    	printf("%s : Control Arrêté\n", __FUNCTION__);
@@ -238,7 +238,32 @@ int ControlInit (ControlStruct *Control) {
 /* de créer la Tâche ControlTask() qui va faire calculer      */
 /* les nouvelles vitesses des moteurs, basé sur l'attitude    */
 /* désirée du drone et son attitude actuelle (voir capteurs). */
-	return 0;
+
+	pthread_attr_t		attr;
+	struct sched_param	param;
+	int					minprio, maxprio, retval=0;
+
+	pthread_barrier_init(&ControlStartBarrier, NULL, 2);
+
+	pthread_attr_init(&attr);
+	pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
+	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+	pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM);
+	minprio = sched_get_priority_min(POLICY);
+	maxprio = sched_get_priority_max(POLICY);
+	pthread_attr_setschedpolicy(&attr, POLICY);
+	param.sched_priority = minprio + (maxprio - minprio)/2;
+	pthread_attr_setstacksize(&attr, THREADSTACK);
+	pthread_attr_setschedparam(&attr, &param);
+
+	retval = pthread_create(&Control->ControlThread, &attr, ControlTask, (void *)&Control);
+	if (retval) {
+		printf("pthread_create : Impossible de créer le thread MotorTask\n");
+		return retval;
+	}
+
+	pthread_attr_destroy(&attr);
+	return retval;
 }
 
 
@@ -247,6 +272,10 @@ int ControlStart (void) {
 /* Ici, vous devriez le travail du contrôleur (loi de commande) du drone. */ 
 /* Les capteurs ainsi que tout le reste du système devrait être           */
 /* prêt à faire leur travail et il ne reste plus qu'à tout démarrer.      */
+	ControlActivated = 1;
+	pthread_barrier_wait(&ControlStartBarrier);
+	pthread_barrier_destroy(&ControlStartBarrier);
+	printf("%s Attitude démarré\n", __FUNCTION__);
 	return 0;
 }
 
@@ -255,7 +284,16 @@ int ControlStart (void) {
 int ControlStop (ControlStruct *Control) {
 /* A faire! */
 /* Ici, vous devriez arrêter le contrôleur du drone.    */ 
-	return 0;
+	int retval = 0;
+	ControlActivated = 0;
+	sem_post(&ControlTimerSem);
+	retval = pthread_join(Control->ControlThread,NULL);
+	if (retval){
+		printf("pthread_join(ControlThread) : Erreur\n");
+		return retval;
+	}
+
+	return retval;
 }
 
 

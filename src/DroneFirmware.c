@@ -77,6 +77,11 @@ void SigTimerHandler (int signo) {
 			sem_post(&MotorTimerSem);
 		}
 	}
+	if(ControlActivated){
+			if ((Period % CONTROL_PERIOD) == 0){
+				sem_post(&ControlTimerSem);
+			}
+		}
 	if ((Period % MAIN_PERIOD) == 0){
 		sem_post (&MainTimerSem);
 	}
@@ -300,6 +305,8 @@ int main(int argc, char *argv[]) {
 	printf("%s Tout arrêté\n", __FUNCTION__);
 
 	sem_destroy(&MainTimerSem);
+	sem_destroy(&MotorTimerSem);
+	sem_destroy(&ControlTimerSem);
 
 	return EXIT_SUCCESS;
 }
