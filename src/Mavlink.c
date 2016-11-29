@@ -188,7 +188,7 @@ int MavlinkInit(MavlinkStruct *Mavlink, AttitudeData *AttitudeDesire, AttitudeDa
 	minprio = sched_get_priority_min(POLICY);
 	maxprio = sched_get_priority_max(POLICY);
 	pthread_attr_setschedpolicy(&attr, POLICY);
-	param.sched_priority = minprio + (maxprio - minprio)/4;
+	param.sched_priority = minprio + (maxprio - minprio)/2;
 	pthread_attr_setstacksize(&attr, THREADSTACK);
 	pthread_attr_setschedparam(&attr, &param);
 

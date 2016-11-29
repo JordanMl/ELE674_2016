@@ -76,7 +76,7 @@ void *SensorTask ( void *ptr ) {
 					//  calculer le délais par rapport au OldRawSample (echantillon brute précédent)
 					// CALCULER DE TIMEDELAY QUE EN SECONDE ??? Demander au prof ou chercher si c'est marqué quelque part
 					sensorSample.TimeDelay = (sensorRawSample.timestamp_s - sensorOldRawSample.timestamp_s)*(uint32_t)1000000000; //secondes
-					if(sensorRawSample.timestamp_n < sensorOldRawSample.timestamp_n){
+					if((sensorSample.TimeDelay != 0)&&(sensorRawSample.timestamp_n < sensorOldRawSample.timestamp_n)){
 						sensorSample.TimeDelay -= (sensorOldRawSample.timestamp_n - sensorRawSample.timestamp_n);
 					}
 					else {
