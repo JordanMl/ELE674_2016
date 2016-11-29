@@ -75,13 +75,21 @@ void *SensorTask ( void *ptr ) {
 				if(sensorRawSample.ech_num!=sensorOldRawSample.ech_num){ //echantillon différente de l'ancien stocké en local
 					//  calculer le délais par rapport au OldRawSample (echantillon brute précédent)
 					// CALCULER DE TIMEDELAY QUE EN SECONDE ??? Demander au prof ou chercher si c'est marqué quelque part
-					sensorSample.TimeDelay = sensorRawSample.timestamp_s - sensorOldRawSample.timestamp_s; //secondes
+					sensorSample.TimeDelay = (sensorRawSample.timestamp_s - sensorOldRawSample.timestamp_s)*(uint32_t)1000000000; //secondes
+					if(sensorRawSample.timestamp_n < sensorOldRawSample.timestamp_n){
+						sensorSample.TimeDelay -= (sensorOldRawSample.timestamp_n - sensorRawSample.timestamp_n);
+					}
+					else {
+						sensorSample.TimeDelay += (sensorRawSample.timestamp_n - sensorOldRawSample.timestamp_n);
+					}
 
 					// - Placer l'échantillon dans la structure global (protection par SpinLock)
 					pthread_spin_lock(&Sensor->DataLock);
 					memcpy((void *) &(Sensor->Data[Sensor->DataIdx]),(void *) &(sensorSample),sizeof(SensorData));
 					memcpy((void *) &(Sensor->RawData[Sensor->DataIdx]),(void *) &(sensorRawSample),sizeof(SensorRawData));
 					pthread_spin_unlock(&Sensor->DataLock);
+
+					memcpy((void *) &(sensorOldRawSample),(void *) &(sensorRawSample),sizeof(SensorRawData));
 
 					pthread_mutex_lock(&(Sensor->DataSampleMutex));
 					//Mise à jour de l'index
@@ -325,5 +333,4 @@ int SensorsLogsStop (SensorStruct SensorTab[]) {
 
 	return 0;
 };
-
 
