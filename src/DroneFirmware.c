@@ -187,6 +187,7 @@ int main(int argc, char *argv[]) {
     pthread_setschedparam(pthread_self(), POLICY, &param);
 
 	sem_init(&MainTimerSem, 0, 0);
+	sem_init(&ControlTimerSem, 0, 0);
 
 	if ((retval = pthread_spin_init(&(AttitudeDesire.AttitudeLock), 1)) < 0) {
 		printf("%s : Impossible d'initialiser le spinlock (AttitudeDesiree.AttitudeLock): retval = %d\n", __FUNCTION__, retval);
@@ -231,7 +232,7 @@ int main(int argc, char *argv[]) {
 	SensorsLogsStart();
 
 	MavlinkStart();
-//	ControlStart();
+	//ControlStart();
 
 	printf("%s Tout démarré\n", __FUNCTION__);
 
@@ -288,8 +289,8 @@ int main(int argc, char *argv[]) {
 	MavlinkStop(&Mavlink);
 	pthread_spin_destroy(&(AttitudeDesire.AttitudeLock));
 	pthread_spin_destroy(&(AttitudeMesure.AttitudeLock));
-//
-//	ControlStop(&Control);
+
+	//ControlStop(&Control);
 
 	MotorStop(&Motor);
 	pthread_spin_destroy(&(Motor.MotorLock));

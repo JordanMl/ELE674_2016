@@ -32,7 +32,7 @@ void *SensorTask ( void *ptr ) {
 	SensorStruct	*Sensor = (SensorStruct *) ptr;
 	SensorRawData   sensorRawSample; //sensor actual raw sample received
 	SensorRawData   sensorOldRawSample; //sensor precedent sample to calculate timeDelay
-	SensorData		sensorSample;
+	SensorData		sensorSample; //sensor data and timedelay after conversion
 
 	sensorSample.TimeDelay = 0;
 	sensorRawSample.ech_num = 0;
@@ -64,7 +64,6 @@ void *SensorTask ( void *ptr ) {
 		//Read, la fonction dort jusqu'à la réception d'un échantillon
 		//	  , place l'échantillon dans sensorRawSample
 		if (read(Sensor->File, &sensorRawSample, sizeof(SensorRawData)) == sizeof(SensorRawData)) {
-			//printf("%s Lecture %s \n",__FUNCTION__,Sensor->Name);
 			//Correction de la donnée  : lire sensorRawSample -> placer dans sensorSample
 			if(sensorRawSample.status==NEW_SAMPLE){ //if New sample
 				for(i=0;i<3;i++){  //mise à l'échelle puis multiplication par le facteur de conversion
@@ -74,14 +73,37 @@ void *SensorTask ( void *ptr ) {
 
 				if(sensorRawSample.ech_num!=sensorOldRawSample.ech_num){ //echantillon différente de l'ancien stocké en local
 					//  calculer le délais par rapport au OldRawSample (echantillon brute précédent)
-					// CALCULER DE TIMEDELAY QUE EN SECONDE ??? Demander au prof ou chercher si c'est marqué quelque part
-					sensorSample.TimeDelay = (sensorRawSample.timestamp_s - sensorOldRawSample.timestamp_s)*(uint32_t)1000000000; //secondes
+
+					/*
+					sensorSample.TimeDelay = (sensorRawSample.timestamp_s*1000000000L)+sensorRawSample.timestamp_n;
+					sensorSample.TimeDelay -= (sensorOldRawSample.timestamp_s*1000000000L)+sensorOldRawSample.timestamp_n;
+					*/
+
+
+					if(sensorOldRawSample.timestamp_s < sensorRawSample.timestamp_s){
+						sensorSample.TimeDelay = (sensorRawSample.timestamp_s - sensorOldRawSample.timestamp_s)*(uint32_t)1000000000;
+						if(sensorOldRawSample.timestamp_n < sensorRawSample.timestamp_n){
+							sensorSample.TimeDelay += sensorRawSample.timestamp_n - sensorOldRawSample.timestamp_n;
+						}
+						else{
+							sensorSample.TimeDelay += sensorOldRawSample.timestamp_n - sensorRawSample.timestamp_n;
+						}
+					}
+					else{
+						if(sensorOldRawSample.timestamp_n < sensorRawSample.timestamp_n){
+							sensorSample.TimeDelay = sensorRawSample.timestamp_n - sensorOldRawSample.timestamp_n;
+						}
+					}
+
+					/*
+					sensorSample.TimeDelay = (sensorRawSample.timestamp_s - sensorOldRawSample.timestamp_s)*(uint32_t)1000000000; //
 					if((sensorSample.TimeDelay != 0)&&(sensorRawSample.timestamp_n < sensorOldRawSample.timestamp_n)){
-						sensorSample.TimeDelay -= (sensorOldRawSample.timestamp_n - sensorRawSample.timestamp_n);
+						sensorSample.TimeDelay -= (sensorOldRawSample.timestamp_n - sensorRawSample.timestamp_n); //
 					}
 					else {
 						sensorSample.TimeDelay += (sensorRawSample.timestamp_n - sensorOldRawSample.timestamp_n);
 					}
+					*/
 
 					// - Placer l'échantillon dans la structure global (protection par SpinLock)
 					pthread_spin_lock(&Sensor->DataLock);
@@ -94,7 +116,9 @@ void *SensorTask ( void *ptr ) {
 					pthread_mutex_lock(&(Sensor->DataSampleMutex));
 					//Mise à jour de l'index
 					Sensor->DataIdx++;
-					Sensor->DataIdx %= (DATABUFSIZE-1);
+					if(Sensor->DataIdx>=DATABUFSIZE){
+						Sensor->DataIdx=0;
+					}
 					// - Avertir qu'un nouvel échantillon est arrivé (Broadcast)
 					pthread_cond_broadcast(&(Sensor->DataNewSampleCondVar));
 					pthread_mutex_unlock(&(Sensor->DataSampleMutex));
