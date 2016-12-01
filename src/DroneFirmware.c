@@ -60,12 +60,7 @@ struct sigaction  TimerSig, old_TimerSig;           /* definition of signal acti
 
 void SigTimerHandler (int signo) {
 	static uint32_t  Period = 0;
-/* A faire! */
-/* Cette fonction est un "signal action" qui agit comme une interruption d'un timer.            */
-/* Elle sert à créer un évènement périodique (5 ms) qui peut servir de base de temps            */
-/* pour l'ensemble des Tâches du système.                                                       */
-/* Vous avez un exemple ci-dessous de comment utiliser ceci pour le Main et pour Mavlink.       */
-/* Il vous faudra ajouter ce qui convient pour les autres Tâches du système, selon les besoins. */
+
 	if (MavlinkActivated) {
 		if ((Period % MAVLINK_RECEIVE_PERIOD) == 0)
 			sem_post(&MavlinkReceiveTimerSem);
@@ -141,6 +136,16 @@ int getchar_nonblock(void) {
 }
 
 
+
+
+/*  MAIN
+ *
+ *  Init des spinlock et semaphores globaux
+ *  Start des differentes tâches
+ *  Start timer
+ *  Boucle while :  touche 'q' = arrête le programme
+ *
+ */
 int main(int argc, char *argv[]) {
 	struct sched_param	param;
 	int		minprio, maxprio;

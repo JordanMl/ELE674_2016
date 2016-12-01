@@ -23,11 +23,11 @@ uint8_t  SensorsActivated 	= 0;
 uint8_t  LogActivated  	  	= 0;
 uint8_t  numLogOutput 	  	= 0;
 
-
+/*  SensorTask
+ *  One task for each sensor : ACCELEROMETRE, GYROSCOPE, SONAR, BAROMETRE, MAGNETOMETRE
+ */
 void *SensorTask ( void *ptr ) {
-/* A faire! */
-/* Tache qui sera instancié pour chaque sensor. Elle s'occupe d'aller */
-/* chercher les donnees du sensor.                                    */
+
 	int i=0;
 	SensorStruct	*Sensor = (SensorStruct *) ptr;
 	SensorRawData   sensorRawSample; //sensor actual raw sample received
@@ -50,19 +50,18 @@ void *SensorTask ( void *ptr ) {
 
 	while (SensorsActivated) {
 
-
-		//Read, la fonction dort jusqu'à la réception d'un échantillon
-		//place l'échantillon dans sensorRawSample
+		//Read, Dort jusqu'à la réception d'un échantillon, donnee brute placee dans sensorRawSample
 		if (read(Sensor->File, &sensorRawSample, sizeof(SensorRawData)) == sizeof(SensorRawData)) {
-			//Correction de la donnée  : lire sensorRawSample -> placer dans sensorSample
-			if(sensorRawSample.status==NEW_SAMPLE){ //if New sample
+
+			if(sensorRawSample.status==NEW_SAMPLE){
 				//Mise à jour de l'index
 				Sensor->DataIdx++;
 				if(Sensor->DataIdx>=DATABUFSIZE){
 					Sensor->DataIdx=0;
 				}
 
-				for(i=0;i<3;i++){  //mise à l'échelle puis multiplication par le facteur de conversion
+				//Correction de la donnée, decalage de centerVal + multiplication par le facteur de conversion
+				for(i=0;i<3;i++){
 					sensorRawSample.data[i] -= Sensor->Param->centerVal;
 					sensorSample.Data[i]=sensorRawSample.data[i]*(Sensor->Param->Conversion);
 				}
@@ -90,24 +89,24 @@ void *SensorTask ( void *ptr ) {
 						}
 					}
 
-					// - Placer l'échantillon dans la structure global (protection par SpinLock)
+					//Placer rawData et Data dans la structure globale SensorStruct
 					pthread_spin_lock(&Sensor->DataLock);
 					memcpy((void *) &(Sensor->Data[Sensor->DataIdx]),(void *) &(sensorSample),sizeof(SensorData));
 					memcpy((void *) &(Sensor->RawData[Sensor->DataIdx]),(void *) &(sensorRawSample),sizeof(SensorRawData));
 					pthread_spin_unlock(&Sensor->DataLock);
 
+					//Sauvegarde de l'enchantillon pour la prochaine comparaison (TimeDelay)
 					memcpy((void *) &(sensorOldRawSample),(void *) &(sensorRawSample),sizeof(SensorRawData));
 
-					pthread_mutex_lock(&(Sensor->DataSampleMutex));
-
 					// - Avertir qu'un nouvel échantillon est arrivé (Broadcast)
+					pthread_mutex_lock(&(Sensor->DataSampleMutex));
 					pthread_cond_broadcast(&(Sensor->DataNewSampleCondVar));
 					pthread_mutex_unlock(&(Sensor->DataSampleMutex));
 				}
 
 			}
 		} else {
-				//La structure n'a pas été copiée en entier
+			//La structure n'a pas été copiée en entier
 			printf("La structure n'a pas été copiée en entier\n");
 		}
 	}
@@ -116,12 +115,12 @@ void *SensorTask ( void *ptr ) {
 }
 
 
+
+/*  SensorsInit
+ *  Init all sensors : ACCELEROMETRE, GYROSCOPE, SONAR, BAROMETRE, MAGNETOMETRE
+ */
 int SensorsInit (SensorStruct SensorTab[NUM_SENSOR]) {
-/* A faire! */
-/* Ici, vous devriez faire l'initialisation de chacun des capteurs.  */ 
-/* C'est-à-dire de faire les initialisations requises, telles que    */
-/* ouvrir les fichiers des capteurs, et de créer les Tâches qui vont */
-/* s'occuper de réceptionner les échantillons des capteurs.          */
+
 	pthread_attr_t		attr;
 	struct sched_param	param;
 	int					minprio, maxprio;
@@ -164,12 +163,12 @@ int SensorsInit (SensorStruct SensorTab[NUM_SENSOR]) {
 	return 0;
 };
 
-
+/*  SensorsStart
+ *
+ *  Place SensorsActivated à 1 -> Permet le démarrage des tâche sensor
+ */
 int SensorsStart (void) {
-/* A faire! */
-/* Ici, vous devriez démarrer l'acquisition sur les capteurs.        */ 
-/* Les capteurs ainsi que tout le reste du système devrait être      */
-/* prêt à faire leur travail et il ne reste plus qu'à tout démarrer. */
+
 	SensorsActivated = 1;
 	pthread_barrier_wait(&(SensorStartBarrier));
 	pthread_barrier_destroy(&SensorStartBarrier);
@@ -178,11 +177,13 @@ int SensorsStart (void) {
 	return 0;
 }
 
-
+/*  SensorsStop
+ *
+ *  Place SensorsActivated à 0 -> Arrêt des tâches sensor
+ *  Fermeture des fichiers virtuels des sensors
+ */
 int SensorsStop (SensorStruct SensorTab[NUM_SENSOR]) {
-/* A faire! */
-/* Ici, vous devriez défaire ce que vous avez fait comme travail dans */
-/* SensorsInit() (toujours verifier les retours de chaque call)...    */ 
+
 	int i, retval;
 
 	SensorsActivated = 0;

@@ -151,7 +151,6 @@ void motor_send(MotorStruct *Motor, int SendMode) {
 	motorPWM[1] = Motor->pwm[1];
 	motorPWM[2] = Motor->pwm[2];
 	motorPWM[3] = Motor->pwm[3];
-	//printf("Vitesse Moteur 1 : %d 2 : %d 3 : %d 4 : %d\n",Motor->pwm[0],Motor->pwm[1],Motor->pwm[2],Motor->pwm[3]);
 
 	motorLeds[0] = Motor->led[0];
 	motorLeds[1] = Motor->led[1];
@@ -175,16 +174,11 @@ void motor_send(MotorStruct *Motor, int SendMode) {
 							break;
 	}
 
-
-
-
 }
 
 
 void *MotorTask ( void *ptr ) {
-/* A faire! */
-/* Tache qui transmet les nouvelles valeurs de vitesse */
-/* à chaque moteur à interval régulier (5 ms).         */
+
 	MotorStruct	*Motor = (MotorStruct *) ptr;
 
 	printf("%s : Motor prêt à démarrer\n", __FUNCTION__);
@@ -194,12 +188,9 @@ void *MotorTask ( void *ptr ) {
 	while (MotorActivated) {
 
 		sem_wait(&MotorTimerSem);
-		//printf("%s : Moteur period \n", __FUNCTION__);
 		if (MotorActivated == 0){
 				break;
 		}
-		//Envoie des vitesses aux moteurs
-		//printf("%s : Envoie des commandes aux moteurs \n", __FUNCTION__);
 		motor_send(Motor, MOTOR_PWM_LED);
 	}
 	printf("%s : Motor arrêté \n", __FUNCTION__);
@@ -207,14 +198,11 @@ void *MotorTask ( void *ptr ) {
 	pthread_exit(0); /* exit thread */
 }
 
-
+/*  SensorsInit
+ *  Init all sensors : ACCELEROMETRE, GYROSCOPE, SONAR, BAROMETRE, MAGNETOMETRE
+ */
 int MotorInit (MotorStruct *Motor) {
-/* A faire! */
-/* Ici, vous devriez faire l'initialisation des moteurs.   */
-/* C'est-à-dire initialiser le Port des moteurs avec la    */
-/* fonction MotorPortInit() et créer la Tâche MotorTask()  */
-/* qui va s'occuper des mises à jours des moteurs en cours */ 
-/* d'exécution.                                            */
+
 	pthread_attr_t		attr;
 	struct sched_param	param;
 	int					minprio, maxprio;
@@ -249,8 +237,7 @@ int MotorInit (MotorStruct *Motor) {
 	Motor->led[2]=0;
 	Motor->led[3]=0;
 
-
-
+	//Create the motor task
 	retval = pthread_create(&(Motor->MotorThread), &attr, MotorTask, Motor);
 	if (retval) {
 			printf("pthread_create : Impossible de créer le thread MotorTask\n");
@@ -263,12 +250,12 @@ int MotorInit (MotorStruct *Motor) {
 }
 
 
-
+/*  MotorStart
+ *
+ *  Place MotorActivated à 1 -> Permet le démarrage des tâche sensor
+ */
 int MotorStart (void) {
-/* A faire! */
-/* Ici, vous devriez démarrer la mise à jour des moteurs (MotorTask).    */ 
-/* Tout le système devrait être prêt à faire leur travail et il ne reste */
-/* plus qu'à tout démarrer.                                              */
+
 	MotorActivated = 1;
 	pthread_barrier_wait(&(MotorStartBarrier));
 	pthread_barrier_destroy(&MotorStartBarrier);
@@ -277,10 +264,13 @@ int MotorStart (void) {
 }
 
 
-
+/*  MotorStop
+ *
+ *  Place MotorActivated à 0 -> Arrêt de la tâche sensor
+ *  Fermeture de fichier virtuel du moteur
+ */
 int MotorStop (MotorStruct *Motor) {
-/* A faire! */
-/* Ici, vous devriez arrêter les moteurs et fermer le Port des moteurs. */ 
+
 	int retval = 0;
 	MotorActivated = 0;
 	sem_post(&MotorTimerSem);
