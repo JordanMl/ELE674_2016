@@ -232,7 +232,7 @@ int main(int argc, char *argv[]) {
 	SensorsLogsStart();
 
 	MavlinkStart();
-	//ControlStart();
+	ControlStart();
 
 	printf("%s Tout démarré\n", __FUNCTION__);
 
@@ -290,7 +290,7 @@ int main(int argc, char *argv[]) {
 	pthread_spin_destroy(&(AttitudeDesire.AttitudeLock));
 	pthread_spin_destroy(&(AttitudeMesure.AttitudeLock));
 
-	//ControlStop(&Control);
+	ControlStop(&Control);
 
 	MotorStop(&Motor);
 	pthread_spin_destroy(&(Motor.MotorLock));

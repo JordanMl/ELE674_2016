@@ -50,35 +50,30 @@ void *SensorTask ( void *ptr ) {
 
 	while (SensorsActivated) {
 
-		//read ()  Bloquant (bloque jusqu'à ce qu'une donnée arrive)
-			//On place la donnée dans une structure locale,
-			//On peut ensuite manipuler la donnée :
-
-			// Switch case suivant le type de capteur :
-				// - Convertir la donnée
-				//   -> Corriger la plage (minVal, maxVal, centerVal)
-				//   -> Appliquer la conversion
-
-
 
 		//Read, la fonction dort jusqu'à la réception d'un échantillon
-		//	  , place l'échantillon dans sensorRawSample
+		//place l'échantillon dans sensorRawSample
 		if (read(Sensor->File, &sensorRawSample, sizeof(SensorRawData)) == sizeof(SensorRawData)) {
 			//Correction de la donnée  : lire sensorRawSample -> placer dans sensorSample
 			if(sensorRawSample.status==NEW_SAMPLE){ //if New sample
+				//Mise à jour de l'index
+				Sensor->DataIdx++;
+				if(Sensor->DataIdx>=DATABUFSIZE){
+					Sensor->DataIdx=0;
+				}
+
 				for(i=0;i<3;i++){  //mise à l'échelle puis multiplication par le facteur de conversion
 					sensorRawSample.data[i] -= Sensor->Param->centerVal;
 					sensorSample.Data[i]=sensorRawSample.data[i]*(Sensor->Param->Conversion);
 				}
 
+				// DEBUG AFFICHAGE SENSOR
+				//if(sensorRawSample.type==MAGNETOMETRE){ //donnees brutes magnetometre
+				//	printf("[  Valeur Raw Magnetometre : EchNum = %d  DATA 0 = %d || DATA 1 = %d || DATA 2 = %d  ]",sensorRawSample.ech_num,sensorRawSample.data[0],sensorRawSample.data[1],sensorRawSample.data[2]);
+				//}
+
 				if(sensorRawSample.ech_num!=sensorOldRawSample.ech_num){ //echantillon différente de l'ancien stocké en local
 					//  calculer le délais par rapport au OldRawSample (echantillon brute précédent)
-
-					/*
-					sensorSample.TimeDelay = (sensorRawSample.timestamp_s*1000000000L)+sensorRawSample.timestamp_n;
-					sensorSample.TimeDelay -= (sensorOldRawSample.timestamp_s*1000000000L)+sensorOldRawSample.timestamp_n;
-					*/
-
 
 					if(sensorOldRawSample.timestamp_s < sensorRawSample.timestamp_s){
 						sensorSample.TimeDelay = (sensorRawSample.timestamp_s - sensorOldRawSample.timestamp_s)*(uint32_t)1000000000;
@@ -95,16 +90,6 @@ void *SensorTask ( void *ptr ) {
 						}
 					}
 
-					/*
-					sensorSample.TimeDelay = (sensorRawSample.timestamp_s - sensorOldRawSample.timestamp_s)*(uint32_t)1000000000; //
-					if((sensorSample.TimeDelay != 0)&&(sensorRawSample.timestamp_n < sensorOldRawSample.timestamp_n)){
-						sensorSample.TimeDelay -= (sensorOldRawSample.timestamp_n - sensorRawSample.timestamp_n); //
-					}
-					else {
-						sensorSample.TimeDelay += (sensorRawSample.timestamp_n - sensorOldRawSample.timestamp_n);
-					}
-					*/
-
 					// - Placer l'échantillon dans la structure global (protection par SpinLock)
 					pthread_spin_lock(&Sensor->DataLock);
 					memcpy((void *) &(Sensor->Data[Sensor->DataIdx]),(void *) &(sensorSample),sizeof(SensorData));
@@ -114,11 +99,7 @@ void *SensorTask ( void *ptr ) {
 					memcpy((void *) &(sensorOldRawSample),(void *) &(sensorRawSample),sizeof(SensorRawData));
 
 					pthread_mutex_lock(&(Sensor->DataSampleMutex));
-					//Mise à jour de l'index
-					Sensor->DataIdx++;
-					if(Sensor->DataIdx>=DATABUFSIZE){
-						Sensor->DataIdx=0;
-					}
+
 					// - Avertir qu'un nouvel échantillon est arrivé (Broadcast)
 					pthread_cond_broadcast(&(Sensor->DataNewSampleCondVar));
 					pthread_mutex_unlock(&(Sensor->DataSampleMutex));
