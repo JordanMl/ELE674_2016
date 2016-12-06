@@ -29,6 +29,8 @@ uint8_t  numLogOutput 	  	= 0;
 void *SensorTask ( void *ptr ) {
 
 	int i=0;
+	int flagGyroBiais =0, flagGyroCount=0;
+	double gyroBetaTmp[3] = {0,0,0};
 	SensorStruct	*Sensor = (SensorStruct *) ptr;
 	SensorRawData   sensorRawSample; //sensor actual raw sample received
 	SensorRawData   sensorOldRawSample; //sensor precedent sample to calculate timeDelay
@@ -64,6 +66,36 @@ void *SensorTask ( void *ptr ) {
 				for(i=0;i<3;i++){
 					sensorRawSample.data[i] -= Sensor->Param->centerVal;
 					sensorSample.Data[i]=sensorRawSample.data[i]*(Sensor->Param->Conversion);
+
+					//Calibration d'erreur (Gain, orthogonalité des axes + biais)
+					sensorSample.Data[i] = sensorSample.Data[i]*Sensor->Param->alpha[i][0] + sensorSample.Data[i]*Sensor->Param->alpha[i][1] + sensorSample.Data[i]*Sensor->Param->alpha[i][2] + Sensor->Param->beta[i];
+
+					//Détection d'erreur (Bornes statiques)
+
+				}
+
+				//Mesure du biais du gyroscope que 100 echantillons au démarrage de la tâche :
+				if (Sensor->type==GYROSCOPE && flagGyroBiais==0){
+					if(flagGyroCount<150){
+						if(flagGyroCount>0){ //pas de moyenne avec 0 au premier echantillon
+							gyroBetaTmp[0] = (gyroBetaTmp[0] + sensorSample.Data[0])/2;
+							gyroBetaTmp[1] = (gyroBetaTmp[1] + sensorSample.Data[1])/2;
+							gyroBetaTmp[2] = (gyroBetaTmp[2] + sensorSample.Data[2])/2;
+						}
+						else{
+							gyroBetaTmp[0] = sensorSample.Data[0];
+							gyroBetaTmp[1] = sensorSample.Data[1];
+							gyroBetaTmp[2] = sensorSample.Data[2];
+						}
+						flagGyroCount ++;
+						printf("Gyroscope mesure du biais a l'init : Beta[0]=%d  Beta[1]=%d  Beta[2]=%d",gyroBetaTmp[0],gyroBetaTmp[1],gyroBetaTmp[2])
+					}
+					else{ //count > 150 on enregistre la moyenne
+						Sensor->Param->beta[0]=gyroBetaTmp[0];
+						Sensor->Param->beta[1]=gyroBetaTmp[1];
+						Sensor->Param->beta[2]=gyroBetaTmp[2];
+						flagGyroBiais =1;
+					}
 				}
 
 				// DEBUG AFFICHAGE SENSOR
@@ -72,8 +104,8 @@ void *SensorTask ( void *ptr ) {
 				//}
 
 				if(sensorRawSample.ech_num!=sensorOldRawSample.ech_num){ //echantillon différente de l'ancien stocké en local
-					//  calculer le délais par rapport au OldRawSample (echantillon brute précédent)
 
+					//  calculer le délais par rapport au OldRawSample (echantillon brute précédent)
 					if(sensorOldRawSample.timestamp_s < sensorRawSample.timestamp_s){
 						sensorSample.TimeDelay = (sensorRawSample.timestamp_s - sensorOldRawSample.timestamp_s)*(uint32_t)1000000000;
 						if(sensorOldRawSample.timestamp_n < sensorRawSample.timestamp_n){
@@ -88,6 +120,9 @@ void *SensorTask ( void *ptr ) {
 							sensorSample.TimeDelay = sensorRawSample.timestamp_n - sensorOldRawSample.timestamp_n;
 						}
 					}
+
+
+
 
 					//Placer rawData et Data dans la structure globale SensorStruct
 					pthread_spin_lock(&Sensor->DataLock);

@@ -159,7 +159,6 @@ void *ControlTask ( void *ptr ) {
 		sem_wait(&ControlTimerSem);
 		if (ControlActivated == 0)
 			break;
-
 		pthread_spin_lock(&(AttitudeDesire->AttitudeLock));
 		memcpy((void *) &DataD, (void *) &(AttitudeDesire->Data), sizeof(AttData));
 		memcpy((void *) &SpeedD, (void *) &(AttitudeDesire->Speed), sizeof(AttData));
@@ -256,9 +255,9 @@ int ControlInit (ControlStruct *Control) {
 	pthread_attr_setstacksize(&attr, THREADSTACK);
 	pthread_attr_setschedparam(&attr, &param);
 
-	retval = pthread_create(&Control->ControlThread, &attr, ControlTask, (void *)&Control);
+	retval = pthread_create(&Control->ControlThread, &attr, ControlTask, (void *)Control);
 	if (retval) {
-		printf("pthread_create : Impossible de créer le thread MotorTask\n");
+		printf("pthread_create : Impossible de créer le thread ControlThread\n");
 		return retval;
 	}
 
@@ -275,7 +274,7 @@ int ControlStart (void) {
 	ControlActivated = 1;
 	pthread_barrier_wait(&ControlStartBarrier);
 	pthread_barrier_destroy(&ControlStartBarrier);
-	printf("%s Attitude démarré\n", __FUNCTION__);
+	printf("%s Control démarré\n", __FUNCTION__);
 	return 0;
 }
 
